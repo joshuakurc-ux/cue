@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Cue — Sleep Consultant</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #f6f1e9; }
+  * { box-sizing: border-box; }
+</style>
+<!-- React + Babel (in-browser JSX transform) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState } = React;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  ✏️  RESULTS LIBRARY — Edit every result here. You own all of this.
+//
+//  Each result has:
+//    action   → "WAIT" | "FEED" | "HELP" | "RESET"
+//    headline → Short bold title (3–6 words)
+//    subtitle → One line telling the parent exactly what to do
+//    advice   → 2–4 sentences of calm, practical guidance
+//    tip      → Optional Cue tip (leave as null to hide)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const RESULTS = {
+
+  // ── PATH 1: Put my baby to sleep ─────────────────────────────────────────
+
+  sleep_settling: {
+    action: "WAIT",
+    headline: "Keep going",
+    subtitle: "Your baby is settling — stay consistent.",
+    advice: "They're on their way. Avoid going back in as it can restart the process. Give them the full window to drift off.",
+    tip: "Cue tip: Darkness and white noise at shower volume are your two most powerful tools right now.",
+  },
+
+  sleep_arching: {
+    action: "RESET",
+    headline: "Change approach",
+    subtitle: "Arching suggests discomfort — try something different.",
+    advice: "Arching or pushing away usually means wind, overstimulation, or the current position isn't working. Try holding them upright over your shoulder and winding gently. A short break from the sleep environment can help reset things.",
+    tip: "Cue tip: If this happens after feeds regularly, consider adjusting latch or teat flow.",
+  },
+
+  sleep_feed_hungry_bf: {
+    action: "FEED",
+    headline: "Feed first",
+    subtitle: "Hunger is likely getting in the way.",
+    advice: "Offer the breast now — breastfed babies digest quickly and it's been long enough that hunger is a real possibility. A settled tummy makes settling so much easier. Once they've fed, try again with a calm wind-down.",
+    tip: "Cue tip: Full feeds = longer stretches. The EASY routine (Eat, Activity, Sleep) helps prevent feed-to-sleep associations.",
+  },
+
+  sleep_feed_hungry_ff: {
+    action: "FEED",
+    headline: "Feed first",
+    subtitle: "It's been long enough — hunger is likely the issue.",
+    advice: "Give them a full feed before trying to settle again. A baby who hasn't had enough will always fight sleep. Once they've had a proper feed, start the wind-down fresh.",
+    tip: "Cue tip: Full feeds are the single biggest lever for longer sleep stretches.",
+  },
+
+  sleep_topup_bf: {
+    action: "FEED",
+    headline: "Offer a top-up",
+    subtitle: "That feed may not have been enough.",
+    advice: "Offer the breast again — even if it felt recent, breastfed babies can't always transfer a full feed in one sitting. A short top-up now could be the difference between 20 minutes and 2 hours of sleep.",
+    tip: "Cue tip: If short feeds are a pattern, look at latch, letdown, or whether baby is distracted during feeds.",
+  },
+
+  sleep_topup_ff: {
+    action: "FEED",
+    headline: "Offer a top-up",
+    subtitle: "They may not have taken enough in that feed.",
+    advice: "A short or refused feed followed by unsettled behaviour often means they're still hungry. Offer a top-up now before trying to resettle. The amount matters — a full tummy changes everything.",
+    tip: null,
+  },
+
+  sleep_pickup_worse: {
+    action: "RESET",
+    headline: "Reset and pause",
+    subtitle: "Put them down safely and take a short break.",
+    advice: "When picking up makes things worse, continuing isn't helping either of you. Put them down safely, step out for two minutes, take a breath, and come back fresh. Sometimes a short pause is the reset button you both need.",
+    tip: "Cue tip: Overstimulation can make babies harder to settle. A quieter, darker room with steady white noise can help.",
+  },
+
+  sleep_escalating: {
+    action: "HELP",
+    headline: "Go in and help",
+    subtitle: "They're escalating — step in now.",
+    advice: "An escalating cry needs a response. Go in, offer comfort, and help them settle. Once calm, you can try putting them back down. Responding now prevents the spiral.",
+    tip: "Cue tip: Calm the baby first, always. You can't teach sleep to a distressed baby.",
+  },
+
+  sleep_keep_going: {
+    action: "WAIT",
+    headline: "Give it more time",
+    subtitle: "They're calm — continue what you're doing.",
+    advice: "A calm but awake baby is not a problem. It can take time to fall asleep. Keep the environment consistent and resist the urge to intervene. If they stay settled, they'll likely drift off on their own.",
+    tip: "Cue tip: Drowsy-but-awake is the goal. A little quiet time before sleep is completely normal.",
+  },
+
+  sleep_newborn_keep_going: {
+    action: "WAIT",
+    headline: "Keep going — you're doing great",
+    subtitle: "Newborns take time to fully settle.",
+    advice: "Newborns often take longer to drop off, and that's completely normal. Keep the environment calm and stay close if needed. The 5 S's — swaddle, shush, swing — can help if they stir. There's no rush.",
+    tip: "Cue tip: At this age, sleep anywhere safe is a win. Don't worry about habits yet.",
+  },
+
+  // ── PATH 2: Crying after being put down ──────────────────────────────────
+
+  crying_soft_wait: {
+    action: "WAIT",
+    headline: "Pause and watch",
+    subtitle: "This is light fussing — give them a moment.",
+    advice: "Soft or grizzly sounds between sleep cycles are completely normal. Many babies will resettle on their own if given a minute or two. Going in too quickly can fully wake them. Wait, watch, and hold off unless it escalates.",
+    tip: "Cue tip: The pause is a skill. Give yourself permission to wait 2–3 minutes before responding.",
+  },
+
+  crying_sharp_wind: {
+    action: "HELP",
+    headline: "Check for discomfort",
+    subtitle: "Sharp cries suggest wind or overstimulation.",
+    advice: "A sudden sharp cry is different from a tired grizzle — it usually signals physical discomfort like trapped wind. Pick them up and hold upright to help move it. Once comfortable, try resettling with calm shushing or gentle motion.",
+    tip: "Cue tip: Bicycle legs and gentle tummy massage can help move wind quickly.",
+  },
+
+  crying_escalating_hungry_bf: {
+    action: "FEED",
+    headline: "They were hungry — feed now",
+    subtitle: "Let them finish a full feed, then resettle.",
+    advice: "They're drinking calmly — that's your answer. Let them finish a full feed at the breast before trying to resettle. Breastfed babies can get hungry faster than you'd expect, especially in growth spurts. A full tummy will make the next attempt much smoother.",
+    tip: "Cue tip: After feeding, give a good wind before resettling to prevent discomfort waking them again.",
+  },
+
+  crying_escalating_hungry_ff: {
+    action: "FEED",
+    headline: "They were hungry — feed now",
+    subtitle: "Let them finish a full feed, then resettle.",
+    advice: "They're drinking calmly — hunger was the issue. Let them finish a proper feed before putting them back down. Make sure it's a full feed, not just a comfort sip. A well-fed baby settles so much more easily.",
+    tip: "Cue tip: After feeding, a good wind before resettling prevents discomfort from interrupting the next sleep.",
+  },
+
+  crying_overtired_fed_to_sleep: {
+    action: "HELP",
+    headline: "Overtired — let them sleep",
+    subtitle: "Don't push for independent settling right now.",
+    advice: "Falling asleep on the feed tells you they were overtired. The priority now is sleep, not how they get there. Let them stay asleep and focus on the next window. You can work on drowsy-but-awake when everyone has had more rest.",
+    tip: "Cue tip: Overtiredness makes everything harder. Sometimes the kindest thing is just getting them to sleep, full stop.",
+  },
+
+  crying_escalating_go_in: {
+    action: "HELP",
+    headline: "Go in now",
+    subtitle: "They're escalating — step in and help.",
+    advice: "An escalating or hysterical cry needs your response. Go in, pick them up, and get them calm before anything else. Once settled, you can try resettling in the cot. There's no benefit to waiting when a cry is escalating.",
+    tip: "Cue tip: Calm the baby first. You can work on independent settling once they're regulated.",
+  },
+
+  crying_not_hunger: {
+    action: "HELP",
+    headline: "Not hunger — focus on settling",
+    subtitle: "Offer comfort and try a different settling approach.",
+    advice: "Refusing or fussing at a feed after waking tells you this isn't about hunger. Focus on settling instead — try motion, shushing, or gentle contact. Something in the environment or routine may need adjusting.",
+    tip: "Cue tip: Dark room, loud white noise, and a consistent settling method are your best tools here.",
+  },
+
+  crying_watch_longer: {
+    action: "WAIT",
+    headline: "Watch a moment longer",
+    subtitle: "Give them a short window to resettle.",
+    advice: "Babies often stir and make noise between sleep cycles without fully waking. Give it another minute or two before going in — you may find they settle themselves. If it escalates, you'll know it's time.",
+    tip: "Cue tip: Between-cycle noise that fades within 5 minutes usually resolves on its own.",
+  },
+
+  // ── PATH 3: Won't settle at all ──────────────────────────────────────────
+
+  settle_reset_tried_too_long: {
+    action: "RESET",
+    headline: "Stop and reset",
+    subtitle: "The same method isn't working — it's time to change it.",
+    advice: "After 10+ minutes with no progress, continuing the same approach rarely helps. Put them down safely, give yourself a 2-minute pause, then come back with a completely different approach — different position, different room, different person if possible.",
+    tip: "Cue tip: Your own stress is felt by baby. A short pause to breathe can make a real difference to both of you.",
+  },
+
+  settle_use_motion: {
+    action: "HELP",
+    headline: "Use motion — it's okay",
+    subtitle: "Movement is a valid and effective tool.",
+    advice: "Motion is one of the 5 S's and is completely appropriate, especially for younger babies. Use the pram, rocking, or a walk — whatever works. You don't need to feel guilty about this. Meeting their needs is always the right call.",
+    tip: "Cue tip: A pram walk with the rain cover up adds white noise and motion together — a classic combo.",
+  },
+
+  settle_feed_first_bf: {
+    action: "FEED",
+    headline: "Feed first",
+    subtitle: "Hunger may be driving the unsettled behaviour.",
+    advice: "An escalating cry with a while since the last feed suggests hunger. Offer the breast now — even if you're not sure, it's worth trying. Breastfed babies can be hungry again quickly, especially during growth phases. Settle the hunger first, then try sleep again.",
+    tip: "Cue tip: Full feeds are the single biggest factor in longer sleep stretches.",
+  },
+
+  settle_feed_first_ff: {
+    action: "FEED",
+    headline: "Feed first",
+    subtitle: "It's been long enough — try a feed before settling.",
+    advice: "An escalating cry at this point since the last feed points to hunger. Give a proper feed first, then start the settling process fresh. It's much easier to settle a baby with a full tummy.",
+    tip: "Cue tip: Full feeds prevent night waking more than any other strategy.",
+  },
+
+  settle_check_wind: {
+    action: "HELP",
+    headline: "Check for wind",
+    subtitle: "Try upright holding and gentle winding.",
+    advice: "A sharp or sudden cry usually means physical discomfort — wind is the most common cause. Hold them upright over your shoulder and pat gently. Try bicycle legs or a gentle tummy massage. Once comfortable, try settling again.",
+    tip: "Cue tip: If wind is a regular issue, look at feeding position, teat flow, or consider gripe water.",
+  },
+
+  settle_keep_going: {
+    action: "WAIT",
+    headline: "Stay calm, keep going",
+    subtitle: "You haven't been at it long — give it time.",
+    advice: "You're early in the process — this is normal resistance, not a sign something is wrong. Stay calm and consistent with your approach. Babies can sense anxiety, so the calmer you are, the easier it gets.",
+    tip: "Cue tip: A consistent routine before sleep helps baby's brain recognise that sleep is coming.",
+  },
+
+  // ── PATH 4: Woke early from nap ──────────────────────────────────────────
+
+  nap_complete: {
+    action: "WAIT",
+    headline: "Nap complete",
+    subtitle: "That was a solid sleep — they may be ready to be up.",
+    advice: "That's a good nap length — their sleep cycle completed and they woke naturally. Enjoy the awake window and watch for tired signs when the next sleep window approaches.",
+    tip: "Cue tip: Note the wake time so you can predict the next sleep window accurately.",
+  },
+
+  nap_wait_resettle: {
+    action: "WAIT",
+    headline: "Wait and watch",
+    subtitle: "They may resettle on their own.",
+    advice: "Soft stirring at the 40-minute mark is a classic between-cycle wake. Many babies will drift back off if given a minute or two. Don't rush in — wait and watch first. If they fully rouse and cry, then go in.",
+    tip: "Cue tip: The 45-minute intruder is one of the most common nap challenges — completely normal and temporary.",
+  },
+
+  nap_feed_hungry_bf: {
+    action: "FEED",
+    headline: "Offer a feed",
+    subtitle: "Hunger may have ended the nap early.",
+    advice: "A short nap with a decent gap since the last feed suggests hunger woke them. Offer the breast now. If they feed well and seem sleepy after, you can try resettling for the second half of the nap.",
+    tip: "Cue tip: Feeding before naps — but not to sleep — helps ensure a full tummy going in.",
+  },
+
+  nap_feed_hungry_ff: {
+    action: "FEED",
+    headline: "Offer a feed",
+    subtitle: "Hunger may have ended the nap early.",
+    advice: "It's been a while since the last feed — hunger may have cut this nap short. Offer a proper feed now, and if they're still showing tired cues after, you can attempt a resettle.",
+    tip: "Cue tip: A full feed before the nap is one of the best predictors of a longer sleep.",
+  },
+
+  nap_grizzle_pause: {
+    action: "WAIT",
+    headline: "Pause, then assist",
+    subtitle: "Give it a moment before going in.",
+    advice: "Grizzling can be a baby trying to transition between sleep cycles. Give it 2–3 minutes before responding. If it escalates to a proper cry, go in and help them back to sleep. If it fades, they've resettled.",
+    tip: "Cue tip: Keeping the room dark and white noise running during the pause helps them find their way back.",
+  },
+
+  nap_go_in: {
+    action: "HELP",
+    headline: "Go in and help",
+    subtitle: "They need assistance to get back to sleep.",
+    advice: "A proper cry after a short nap means they need your help. Go in, resettle with your usual method, and try to get them back down for at least another cycle. Short naps leave babies under-rested and harder to handle later.",
+    tip: "Cue tip: A second attempt at the nap is always worth trying — even 20 more minutes makes a real difference.",
+  },
+
+  // ── PATH 5: When to put baby down ────────────────────────────────────────
+
+  timing_not_ready: {
+    action: "WAIT",
+    headline: "Not ready yet",
+    subtitle: "Give them more awake time before trying.",
+    advice: "They're calm and haven't been awake long enough — putting them down now risks an undertired baby who fights sleep. Give it another 20–30 minutes and watch for the first tired cues: yawning, staring, losing interest in toys.",
+    tip: "Cue tip: An undertired baby is just as hard to settle as an overtired one. The window matters.",
+  },
+
+  timing_feed_first_bf: {
+    action: "FEED",
+    headline: "Feed before sleep",
+    subtitle: "Offer the breast first, then put them down.",
+    advice: "It's been a while since the last feed — offer the breast before sleep. Breastfed babies digest quickly and a full tummy now means a longer, calmer sleep. Don't rush the feed; let them finish properly, then begin your wind-down.",
+    tip: "Cue tip: Feed → short activity → sleep. The EASY sequence prevents feed-to-sleep associations while keeping baby full.",
+  },
+
+  timing_feed_first_ff: {
+    action: "FEED",
+    headline: "Feed before sleep",
+    subtitle: "Offer a full feed, then put them down.",
+    advice: "Offer a full feed before putting them down — they're due one, and a full tummy means a longer, calmer sleep. Once they've fed well, start your wind-down routine.",
+    tip: "Cue tip: Feed → short activity → sleep. This sequence prevents feed-to-sleep associations while keeping baby full.",
+  },
+
+  timing_wind_down: {
+    action: "HELP",
+    headline: "Start winding down now",
+    subtitle: "Sleep is close — begin your routine.",
+    advice: "You're seeing the early tired signs — this is the ideal moment to begin your wind-down. Dim the lights, move to a quieter space, and start whatever routine signals sleep is coming. Don't wait for it to escalate. This is the sweet spot.",
+    tip: "Cue tip: A consistent 3-step wind-down (e.g. nappy, sleep sack, feed or song) teaches baby's brain that sleep is next.",
+  },
+
+  timing_put_down_now: {
+    action: "HELP",
+    headline: "Put baby down now",
+    subtitle: "This is your window — don't miss it.",
+    advice: "Clear tired signs are showing — act now before the window closes. Start your wind-down immediately and get them into the sleep environment. Missing this window means cortisol kicks in and settling becomes much harder.",
+    tip: "Cue tip: Bright eyes starting to glaze and staring into the distance are classic signs you're right in the window.",
+  },
+
+  timing_overtired_act_fast: {
+    action: "RESET",
+    headline: "Overtired — act now",
+    subtitle: "Use your strongest settling method immediately.",
+    advice: "They've passed the ideal window and are overtired — this makes settling harder, not easier. Use your strongest settling method right now: motion, feeding, contact nap — whatever works. Don't try to stretch it further. Get them to sleep first, adjust the routine later.",
+    tip: "Cue tip: An overtired baby produces cortisol which actively fights sleep. Speed matters more than method right now.",
+  },
+
+  // ── TEETHING ─────────────────────────────────────────────────────────────
+
+  teething_young: {
+    action: "HELP",
+    headline: "This may be teething",
+    subtitle: "Focus on comfort — settling can wait.",
+    advice: "Drooling, chewing, and swollen gums are early teething signs, often appearing from 3–4 months even before teeth break through. Try offering a cold (not frozen) teether or gently rubbing their gums with a clean finger. Extra cuddles and contact are completely appropriate right now — discomfort needs comfort first.",
+    tip: "Cue tip: Cold helps numb sore gums. A chilled (not frozen) damp cloth or silicone teether works well.",
+  },
+
+  teething_older: {
+    action: "HELP",
+    headline: "This may be teething",
+    subtitle: "Comfort first — then try to resettle.",
+    advice: "Teething pain is real and it disrupts sleep — this isn't a settling problem, it's a pain problem. Offer a cold teether and give extra comfort. If they're clearly in pain and it's been more than 4 hours since any pain relief, infant paracetamol (from 3 months) or ibuprofen (from 6 months) may help — always check the correct dose for their weight.",
+    tip: "Cue tip: Teething discomfort tends to peak in the evening and overnight. A settled day nap can help them cope better at night.",
+  },
+
+  teething_nap: {
+    action: "HELP",
+    headline: "Teething may have cut this short",
+    subtitle: "Comfort them first, then try to resettle.",
+    advice: "Pain from teething can wake babies mid-cycle when they'd normally drift back off. Offer a cold teether and hold them upright for a few minutes to help with any draining discomfort. If they're still unsettled after a few minutes of comfort, try resettling — a second sleep attempt is always worth it.",
+    tip: "Cue tip: If teething is disrupting naps regularly, infant paracetamol given before the nap (from 3 months, correct dose for weight) can help them get through a full cycle.",
+  },
+
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  🔀 ROUTING LOGIC — Maps answers → result IDs. Edit IDs to change outcomes.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function route(path, answers, age, feed) {
+  // Helper: get answer by question ID
+  const a = (id) => {
+    const q = QUESTIONS[path]?.find(q => q.id === id);
+    return answers.find(x => x.question === q?.q)?.answer || "";
+  };
+
+  const isNewborn  = ["0-4w","4-8w"].includes(age);
+  const isBF       = feed === "breastfed" || feed === "combination";
+  // Hunger threshold differs by feed method
+  const isHungry   = (lastFed) => isBF
+    ? ["2–3 hours ago","More than 3 hours ago"].includes(lastFed)
+    : lastFed === "More than 3 hours ago";
+  const isHungryNap = (lastFed) => isBF
+    ? ["1.5–2.5 hours ago","More than 2.5 hours ago"].includes(lastFed)
+    : lastFed === "More than 2.5 hours ago";
+  const feed_r = (bf, ff) => isBF ? bf : ff;
+
+  // ── Path 1: Put to sleep ────────────────────────────────────────────────
+  if (path === "sleep") {
+    if (a("asleep").startsWith("Yes"))
+      return isNewborn ? "sleep_newborn_keep_going" : "sleep_settling";
+
+    const state   = a("current_state");
+    const quality = a("feed_quality");
+    const lastFed = a("last_fed");
+    const pickup  = a("pickup_response");
+
+    if (state === "Arching / pushing away")      return "sleep_arching";
+    if (pickup === "Gets more upset")             return "sleep_pickup_worse";
+    if (state === "Getting more upset")           return "sleep_escalating";
+
+    const shortFeed = ["Short or distracted","Refused / pulled away"].includes(quality);
+    if (isHungry(lastFed))   return feed_r("sleep_feed_hungry_bf","sleep_feed_hungry_ff");
+    if (shortFeed)           return feed_r("sleep_topup_bf","sleep_topup_ff");
+
+    return isNewborn ? "sleep_newborn_keep_going" : "sleep_keep_going";
+  }
+
+  // ── Path 2: Crying after being put down ────────────────────────────────
+  if (path === "crying") {
+    const cry      = a("cry_type");
+    const teething = a("teething");
+    const lastFed  = a("last_fed");
+    const offered  = a("feed_offer");
+    const isOlder  = ["6-9m","9-12m","12m+"].includes(age);
+    const isTeething = teething.startsWith("Yes") && !["0-4w","4-8w"].includes(age);
+
+    if (["Soft / on-and-off","Grizzling"].includes(cry))  return "crying_soft_wait";
+    if (cry === "Sudden sharp cries") {
+      if (isTeething) return isOlder ? "teething_older" : "teething_young";
+      return "crying_sharp_wind";
+    }
+
+    if (["Loud and escalating","Hysterical"].includes(cry)) {
+      if (isTeething)                                      return isOlder ? "teething_older" : "teething_young";
+      if (offered === "Falls asleep feeding")              return "crying_overtired_fed_to_sleep";
+      if (offered === "Drinks calmly" && isHungry(lastFed))
+        return feed_r("crying_escalating_hungry_bf","crying_escalating_hungry_ff");
+      if (["Refuses","Drinks briefly then fusses"].includes(offered))
+        return "crying_not_hunger";
+      return "crying_escalating_go_in";
+    }
+
+    return "crying_watch_longer";
+  }
+
+  // ── Path 3: Won't settle at all ────────────────────────────────────────
+  if (path === "settle") {
+    const duration = a("duration");
+    const motion   = a("motion");
+    const cry      = a("cry_type");
+    const teething = a("teething");
+    const lastFed  = a("last_fed");
+    const isOlder  = ["6-9m","9-12m","12m+"].includes(age);
+    const isTeething = teething.startsWith("Yes") && !["0-4w","4-8w"].includes(age);
+
+    if (duration.startsWith("Yes"))               return "settle_reset_tried_too_long";
+    if (motion.startsWith("Yes"))                 return "settle_use_motion";
+    if (isTeething)                               return isOlder ? "teething_older" : "teething_young";
+    if (cry === "Sharp / sudden")                 return "settle_check_wind";
+    if (cry === "Escalating" && isHungryNap(lastFed))
+      return feed_r("settle_feed_first_bf","settle_feed_first_ff");
+
+    return "settle_keep_going";
+  }
+
+  // ── Path 4: Woke early from nap ────────────────────────────────────────
+  if (path === "nap") {
+    const short    = a("nap_length");
+    const sound    = a("sound");
+    const teething = a("teething");
+    const lastFed  = a("last_fed");
+    const isTeething = teething.startsWith("Yes") && !["0-4w","4-8w"].includes(age);
+
+    if (!short.startsWith("Yes"))    return "nap_complete";
+    if (sound === "Soft / stirring") return "nap_wait_resettle";
+    if (isTeething)                  return "teething_nap";
+    if (sound === "Grizzling")       return isHungryNap(lastFed)
+      ? feed_r("nap_feed_hungry_bf","nap_feed_hungry_ff")
+      : "nap_grizzle_pause";
+    // Crying
+    if (isHungryNap(lastFed))
+      return feed_r("nap_feed_hungry_bf","nap_feed_hungry_ff");
+    return "nap_go_in";
+  }
+
+  // ── Path 5: When to put baby down ──────────────────────────────────────
+  if (path === "timing") {
+    const awake   = a("awake_time");
+    const state   = a("current_state");
+    const lastFed = a("last_fed");
+
+    if (state === "Very fussy / melting down")    return "timing_overtired_act_fast";
+    if (isHungry(lastFed))
+      return feed_r("timing_feed_first_bf","timing_feed_first_ff");
+    if (state === "Calm and happy" && awake === "Less than 1 hour")
+      return "timing_not_ready";
+    if (state === "Slightly fussy")               return "timing_wind_down";
+    if (state === "Restless / losing interest")   return "timing_put_down_now";
+
+    return "timing_wind_down";
+  }
+
+  return "sleep_keep_going"; // fallback
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CONFIG — Questions, paths, age buckets, feed methods
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const AGE_BUCKETS = [
+  { label: "0–4 weeks",   value: "0-4w",  wake: "45–60 min" },
+  { label: "4–8 weeks",   value: "4-8w",  wake: "60–75 min" },
+  { label: "2–3 months",  value: "2-3m",  wake: "75–90 min" },
+  { label: "3–4 months",  value: "3-4m",  wake: "90–120 min" },
+  { label: "4–6 months",  value: "4-6m",  wake: "2–2.5 hrs" },
+  { label: "6–9 months",  value: "6-9m",  wake: "2.5–3 hrs" },
+  { label: "9–12 months", value: "9-12m", wake: "3–4 hrs" },
+  { label: "12+ months",  value: "12m+",  wake: "4–6 hrs" },
+];
+
+const FEED_METHODS = [
+  { value: "breastfed",   icon: "🤱", label: "Breastfed",    sub: "Including expressed breast milk" },
+  { value: "formula",     icon: "🍼", label: "Formula fed",  sub: "Including combination with formula as main" },
+  { value: "combination", icon: "🔄", label: "Combination",  sub: "Regular mix of breast and formula" },
+];
+
+const PATHS = [
+  { id: "sleep",  icon: "🌙", label: "Put my baby to sleep" },
+  { id: "crying", icon: "😭", label: "Baby is crying after being put down" },
+  { id: "settle", icon: "😵", label: "Baby won't settle at all" },
+  { id: "nap",    icon: "⏱️", label: "Baby woke too early from a nap" },
+  { id: "timing", icon: "⏰", label: "When should I put baby down?" },
+];
+
+const QUESTIONS = {
+  sleep: [
+    { id: "asleep",          q: "Has your baby fallen asleep within 10 minutes?",  opts: ["Yes — they settled", "No — still awake"] },
+    { id: "last_fed",        q: "When was your baby last fed?",                    opts: ["Less than 1 hour ago", "1–2 hours ago", "2–3 hours ago", "More than 3 hours ago"] },
+    { id: "feed_quality",    q: "How did that feed go?",                           opts: ["Full, calm feed", "Short or distracted", "Refused / pulled away", "Fell asleep feeding"] },
+    { id: "current_state",   q: "What is your baby doing right now?",              opts: ["Calm but awake", "Fussy / whinging", "Getting more upset", "Arching / pushing away"] },
+    { id: "pickup_response", q: "What happens if you pick them up?",               opts: ["Calms quickly", "Still unsettled", "Gets more upset"] },
+  ],
+  crying: [
+    { id: "wake_timing", q: "Did they wake within 5–20 minutes of going down?", opts: ["Yes — very quick wake", "No — later than that"] },
+    { id: "cry_type",    q: "What does the cry sound like?",                     opts: ["Soft / on-and-off", "Grizzling", "Loud and escalating", "Sudden sharp cries", "Hysterical"] },
+    { id: "teething",    q: "Are there any signs of teething?",                  opts: ["Yes — drooling, chewing, or swollen gums", "No / not sure"] },
+    { id: "last_fed",    q: "When was your baby last fed?",                      opts: ["Less than 1 hour ago", "1–2 hours ago", "2–3 hours ago", "More than 3 hours ago"] },
+    { id: "feed_offer",  q: "What happens if you offer a feed?",                 opts: ["Drinks calmly", "Drinks briefly then fusses", "Refuses", "Falls asleep feeding"] },
+  ],
+  settle: [
+    { id: "duration",  q: "Have you been trying the same method for 10+ minutes?", opts: ["Yes — nothing is working", "No — just started"] },
+    { id: "motion",    q: "Do they settle with movement — rocking, pram, or car?", opts: ["Yes — movement helps", "No — still unsettled"] },
+    { id: "cry_type",  q: "What does the cry sound like?",                         opts: ["Whinging / grizzly", "Escalating", "Sharp / sudden"] },
+    { id: "teething",  q: "Are there any signs of teething?",                      opts: ["Yes — drooling, chewing, or swollen gums", "No / not sure"] },
+    { id: "last_fed",  q: "When was the last feed?",                               opts: ["Less than 1.5 hours ago", "1.5–2.5 hours ago", "More than 2.5 hours ago"] },
+  ],
+  nap: [
+    { id: "nap_length", q: "Did they sleep less than 40 minutes?",  opts: ["Yes — very short nap", "No — longer than that"] },
+    { id: "sound",      q: "What do they sound like right now?",     opts: ["Soft / stirring", "Grizzling", "Crying"] },
+    { id: "teething",   q: "Are there any signs of teething?",       opts: ["Yes — drooling, chewing, or swollen gums", "No / not sure"] },
+    { id: "last_fed",   q: "When was the last feed?",                opts: ["Less than 1.5 hours ago", "1.5–2.5 hours ago", "More than 2.5 hours ago"] },
+  ],
+  timing: [
+    { id: "awake_time",    q: "How long has your baby been awake?",   opts: ["Less than 1 hour", "1–2 hours", "2–3 hours", "More than 3 hours"] },
+    { id: "last_sleep",    q: "How did the last sleep go?",           opts: ["Long and restful", "Short", "Very short", "Multiple short naps today"] },
+    { id: "current_state", q: "What is your baby doing right now?",   opts: ["Calm and happy", "Slightly fussy", "Restless / losing interest", "Very fussy / melting down"] },
+    { id: "last_fed",      q: "When was your baby last fed?",         opts: ["Less than 1 hour ago", "1–2 hours ago", "2–3 hours ago", "More than 3 hours ago"] },
+  ],
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  UI — App, screens, styles
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const ACTION_META = {
+  WAIT:  { bg: "#e9f2ea", text: "#2a5430", border: "#a8c9ab", emoji: "🤫" },
+  FEED:  { bg: "#fdf0e0", text: "#7a4010", border: "#e8c480", emoji: "🍼" },
+  HELP:  { bg: "#e2ecf8", text: "#1a3870", border: "#8ab0dc", emoji: "🫶" },
+  RESET: { bg: "#fce9e9", text: "#6e1a1a", border: "#d88a8a", emoji: "↩️" },
+};
+
+function App() {
+  const [babyAge, setBabyAge]       = useState(() => { try { return localStorage.getItem("cue_age") || null; } catch { return null; } });
+  const [feedMethod, setFeedMethod] = useState(() => { try { return localStorage.getItem("cue_feed") || null; } catch { return null; } });
+  const setupDone = babyAge && feedMethod;
+  const [stage, setStage]   = useState(setupDone ? "home" : (!babyAge ? "age" : "feed"));
+  const [path, setPath]     = useState(null);
+  const [answers, setAnswers] = useState([]);
+  const [qIndex, setQIndex] = useState(0);
+  const [result, setResult] = useState(null);
+  const [fade, setFade]     = useState(true);
+
+  const go = (fn) => { setFade(false); setTimeout(() => { fn(); setFade(true); }, 200); };
+
+  const selectAge = (v) => { try { localStorage.setItem("cue_age", v); } catch {} go(() => { setBabyAge(v); setStage(feedMethod ? "home" : "feed"); }); };
+  const selectFeed = (v) => { try { localStorage.setItem("cue_feed", v); } catch {} go(() => { setFeedMethod(v); setStage("home"); }); };
+  const selectPath = (p) => go(() => { setPath(p); setAnswers([]); setQIndex(0); setStage("questions"); });
+
+  const answerQ = (answer) => {
+    const qs = QUESTIONS[path];
+    const newAnswers = [...answers, { question: qs[qIndex].q, answer }];
+    setAnswers(newAnswers);
+    if (qIndex + 1 >= qs.length) {
+      const resultId = route(path, newAnswers, babyAge, feedMethod);
+      go(() => { setResult(RESULTS[resultId]); setStage("result"); });
+    } else {
+      go(() => setQIndex(qIndex + 1));
+    }
+  };
+
+  const goHome  = () => go(() => { setStage("home"); setResult(null); setPath(null); setAnswers([]); setQIndex(0); });
+  const goBack  = () => {
+    if (stage === "questions" && qIndex > 0) go(() => { setQIndex(qIndex - 1); setAnswers(answers.slice(0,-1)); });
+    else if (stage === "questions")          go(() => setStage("home"));
+    else if (stage === "feed")               go(() => setStage("age"));
+    else                                     goHome();
+  };
+
+  const bucket     = AGE_BUCKETS.find(a => a.value === babyAge);
+  const feedBucket = FEED_METHODS.find(f => f.value === feedMethod);
+  const fs = { opacity: fade?1:0, transform: fade?"translateY(0)":"translateY(8px)", transition:"opacity 0.2s ease, transform 0.2s ease" };
+
+  return (
+    <div style={s.shell}>
+      <style>{`@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}} button:active{opacity:0.8;transform:scale(0.98)}`}</style>
+      <div style={s.topbar}>
+        {(stage==="questions"||stage==="result"||stage==="feed")
+          ? <button style={s.navBtn} onClick={goBack}>← Back</button>
+          : <div style={{width:70}}/>}
+        <div style={s.brandWrap}>
+          <span style={s.brandName}>Cue</span>
+          <span style={s.brandSub}>Sleep Consultant</span>
+        </div>
+        {setupDone
+          ? <button style={s.settingsPill} onClick={()=>go(()=>setStage("age"))}>{bucket?.label} · {feedBucket?.icon}</button>
+          : <div style={{width:80}}/>}
+      </div>
+
+      <div style={fs}>
+        {stage==="age"       && <AgeScreen  current={babyAge}    onSelect={selectAge}  />}
+        {stage==="feed"      && <FeedScreen current={feedMethod} onSelect={selectFeed} />}
+        {stage==="home"      && <HomeScreen bucket={bucket} feedBucket={feedBucket} onSelect={selectPath} />}
+        {stage==="questions" && <QuestionScreen q={QUESTIONS[path][qIndex]} index={qIndex} total={QUESTIONS[path].length} onAnswer={answerQ} />}
+        {stage==="result"    && result && <ResultScreen result={result} onReset={goHome} onRetry={()=>go(()=>{setAnswers([]);setQIndex(0);setStage("questions");})} />}
+      </div>
+    </div>
+  );
+}
+
+function AgeScreen({ current, onSelect }) {
+  return (
+    <div style={s.page}>
+      <div style={s.hero}><div style={s.heroEmoji}>👶</div>
+        <h1 style={s.h1}>How old is your baby?</h1>
+        <p style={s.sub}>We tailor all advice to their age. Set once, remembered always.</p>
+      </div>
+      <div style={s.list}>
+        {AGE_BUCKETS.map(b=>(
+          <button key={b.value} style={{...s.rowBtn,...(current===b.value?s.rowActive:{})}} onClick={()=>onSelect(b.value)}>
+            <div style={{flex:1}}><div style={s.rowMain}>{b.label}</div><div style={s.rowSub}>Wake window: {b.wake}</div></div>
+            <span style={s.arr}>{current===b.value?"✓":"›"}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeedScreen({ current, onSelect }) {
+  return (
+    <div style={s.page}>
+      <div style={s.hero}><div style={s.heroEmoji}>🤱</div>
+        <h1 style={s.h1}>How do you feed your baby?</h1>
+        <p style={s.sub}>This shapes our advice around hunger and feed timing. Set once, remembered always.</p>
+      </div>
+      <div style={s.list}>
+        {FEED_METHODS.map(f=>(
+          <button key={f.value} style={{...s.rowBtn,...(current===f.value?s.rowActive:{})}} onClick={()=>onSelect(f.value)}>
+            <span style={s.icon}>{f.icon}</span>
+            <div style={{flex:1}}><div style={s.rowMain}>{f.label}</div><div style={s.rowSub}>{f.sub}</div></div>
+            <span style={s.arr}>{current===f.value?"✓":"›"}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HomeScreen({ bucket, feedBucket, onSelect }) {
+  return (
+    <div style={s.page}>
+      <div style={s.hero}><div style={s.heroEmoji}>🌙</div>
+        <h1 style={s.h1}>What's happening?</h1>
+        <p style={s.sub}>Answer a few questions and we'll tell you exactly what to do.</p>
+        {bucket && (
+          <div style={s.chips}>
+            <div style={s.chip}>⏱ {bucket.wake} wake window</div>
+            {feedBucket && <div style={s.chip}>{feedBucket.icon} {feedBucket.label}</div>}
+          </div>
+        )}
+      </div>
+      <div style={s.list}>
+        {PATHS.map(p=>(
+          <button key={p.id} style={s.rowBtn} onClick={()=>onSelect(p.id)}>
+            <span style={s.icon}>{p.icon}</span>
+            <span style={{...s.rowMain,flex:1}}>{p.label}</span>
+            <span style={s.arr}>›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuestionScreen({ q, index, total, onAnswer }) {
+  return (
+    <div style={s.page}>
+      <div style={s.qMeta}>
+        <div style={s.dots}>{Array.from({length:total}).map((_,i)=><div key={i} style={{...s.dot,background:i<=index?"#6faa73":"#e0d8cc"}}/>)}</div>
+        <span style={s.qCount}>{index+1} / {total}</span>
+      </div>
+      <h2 style={s.qText}>{q.q}</h2>
+      <div style={s.list}>
+        {q.opts.map((opt,i)=>(
+          <button key={i} style={s.rowBtn} onClick={()=>onAnswer(opt)}>
+            <span style={{...s.rowMain,flex:1}}>{opt}</span>
+            <span style={s.arr}>›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultScreen({ result, onReset, onRetry }) {
+  const meta = ACTION_META[result.action] || ACTION_META.HELP;
+  return (
+    <div style={s.page}>
+      <div style={{...s.card, borderColor:meta.border}}>
+        <div style={{...s.badge, background:meta.bg, color:meta.text, borderColor:meta.border}}>
+          {meta.emoji} {result.action}
+        </div>
+        <h2 style={s.resultH}>{result.headline}</h2>
+        <p style={s.resultSub}>{result.subtitle}</p>
+        <div style={s.rule}/>
+        <p style={s.resultBody}>{result.advice}</p>
+        {result.tip && <div style={s.tipBox}><p style={s.tipText}>{result.tip}</p></div>}
+      </div>
+      <button style={s.ghostBtn} onClick={onReset}>← Try another situation</button>
+      <button style={{...s.ghostBtn,marginTop:8,color:"#bbb",borderColor:"#ece5db",fontSize:13}} onClick={onRetry}>↺ Redo these questions</button>
+    </div>
+  );
+}
+
+const s = {
+  shell:   { minHeight:"100vh", background:"#f6f1e9", fontFamily:"'Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif", maxWidth:480, margin:"0 auto", paddingBottom:40 },
+  topbar:  { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 20px 10px" },
+  brandWrap: { display:"flex", flexDirection:"column", alignItems:"center", flex:1 },
+  brandName: { fontSize:19, letterSpacing:"0.22em", color:"#3a3028", fontStyle:"italic", fontWeight:"normal", lineHeight:1.1 },
+  brandSub:  { fontSize:9, letterSpacing:"0.18em", color:"#b0a090", textTransform:"uppercase", lineHeight:1.5 },
+  navBtn:    { background:"none", border:"none", color:"#a09080", fontSize:14, cursor:"pointer", padding:0, fontFamily:"inherit", width:70, textAlign:"left" },
+  settingsPill: { background:"#edf3ee", border:"1.5px solid #a8c9ab", color:"#2a5430", borderRadius:20, padding:"4px 10px", fontSize:11, cursor:"pointer", fontFamily:"inherit", width:80, textAlign:"center", lineHeight:1.4 },
+  page:  { padding:"4px 18px 24px" },
+  hero:  { textAlign:"center", padding:"22px 8px 20px" },
+  heroEmoji: { fontSize:46, marginBottom:14 },
+  h1:    { fontSize:25, color:"#3a3028", fontWeight:"normal", margin:"0 0 10px", lineHeight:1.25 },
+  sub:   { fontSize:14.5, color:"#7a6a58", margin:"0 0 14px", lineHeight:1.65, fontStyle:"italic" },
+  chips: { display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", marginTop:4 },
+  chip:  { display:"inline-flex", alignItems:"center", gap:5, background:"#fff", border:"1.5px solid #e0d8cc", borderRadius:20, padding:"6px 14px", fontSize:12.5, color:"#5a4a38" },
+  list:  { display:"flex", flexDirection:"column", gap:9 },
+  rowBtn:  { background:"#fff", border:"1.5px solid #e2d9cc", borderRadius:14, padding:"15px 17px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left", boxShadow:"0 1px 5px rgba(0,0,0,0.04)", transition:"opacity 0.13s, transform 0.13s" },
+  rowActive: { background:"#edf3ee", borderColor:"#7aaa7e" },
+  rowMain: { fontSize:15, color:"#3a3028", fontFamily:"inherit", lineHeight:1.4 },
+  rowSub:  { fontSize:12, color:"#a09080", marginTop:2, fontStyle:"italic" },
+  icon:  { fontSize:20, flexShrink:0 },
+  arr:   { fontSize:19, color:"#c0b0a0", flexShrink:0 },
+  qMeta: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 0 20px" },
+  dots:  { display:"flex", gap:5 },
+  dot:   { width:7, height:7, borderRadius:"50%", transition:"background 0.3s" },
+  qCount: { fontSize:12, color:"#b0a090", fontStyle:"italic" },
+  qText: { fontSize:21, color:"#3a3028", fontWeight:"normal", lineHeight:1.45, margin:"0 0 24px" },
+  card:  { background:"#fff", borderRadius:20, padding:"26px 22px", border:"2px solid", marginBottom:14, boxShadow:"0 3px 20px rgba(0,0,0,0.06)" },
+  badge: { display:"inline-flex", alignItems:"center", gap:6, fontSize:11, letterSpacing:"0.14em", textTransform:"uppercase", padding:"5px 14px", borderRadius:20, border:"1.5px solid", marginBottom:16, fontFamily:"inherit" },
+  resultH:    { fontSize:24, color:"#3a3028", fontWeight:"normal", margin:"0 0 7px", lineHeight:1.2 },
+  resultSub:  { fontSize:14, color:"#7a6a58", margin:"0 0 18px", fontStyle:"italic", lineHeight:1.5 },
+  rule:       { height:1, background:"#ede6da", margin:"0 0 18px" },
+  resultBody: { fontSize:15.5, color:"#4a3e30", lineHeight:1.8, margin:"0 0 16px" },
+  tipBox:  { background:"#f5f0e8", borderRadius:11, padding:"12px 15px", borderLeft:"3px solid #6faa73" },
+  tipText: { fontSize:13, color:"#6a5a48", fontStyle:"italic", lineHeight:1.6, margin:0 },
+  ghostBtn: { background:"transparent", border:"1.5px solid #d0c8bc", borderRadius:12, padding:"14px", fontSize:14, color:"#8a7a68", cursor:"pointer", fontFamily:"inherit", width:"100%" },
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
